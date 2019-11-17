@@ -7,17 +7,23 @@ np.set_printoptions(threshold=sys.maxsize)
 
 # read grey image
 img = cv2.imread('coins1.png',0)
+img_output = cv2.imread('coins1.png',1 )
 height, width = img.shape
 
 dx = np.array([[-1, 0, 1], [-2, 0, 2],[-1, 0, 1]], np.int32)
 dy = np.array([[-1, -2, -1], [0, 0, 0],[1, 2, 1]], np.int32)
 
+radius = int(width/2)
+
 image_dx = np.zeros((height,width),np.float32)
 gradient_magnitude = np.zeros((height,width),np.float32)
 image_dy = np.zeros((height,width),np.float32)
 gradient_angle = np.zeros((height,width),np.float32)
-hough_space = np.zeros((height,width,width/4),np.int32)
-radius = width/2
+hough_space = np.zeros((height,width,radius),np.int32)
+print("WIDTH : " + str(width))
+print("HEIGHT : " + str(height))
+print("radius : " + str(radius))
+hough_space_gradient_threshold = 100
 
 # Cal DX
 # ---------------------------------------------------
@@ -90,10 +96,30 @@ for i in range(1,height-1):
 
 for i in range(1,height-1):
     for j in range(1,width-1):
-        for radi in range(radius):
-            x0 = i + abs(radi * np.cos(gradient_angle[i][j]))
-            y0 = j + abs(radi * np.sin(gradient_angle[i][j]))
+        if(gradient_magnitude[i][j] > hough_space_gradient_threshold):
+            for radi in range(radius):
+                x0 = i + int(radi * math.sin(gradient_angle[i][j]))
+                y0 = j + int(radi * math.cos(gradient_angle[i][j]))
+                if x0 >= 0 and y0 >= 0 and x0 < height and y0 < width:
+                    hough_space[x0][y0][radi] = hough_space[x0][y0][radi] + 1
 
+                x1 = i - int(radi * math.sin(gradient_angle[i][j]))
+                y1 = j - int(radi * math.cos(gradient_angle[i][j]))
+                if x1 >= 0 and y1 >= 0 and x1 < height and y1 < width:
+                    hough_space[x1][y1][radi] = hough_space[x1][y1][radi] + 1
+
+for i in range(1,height-1):
+    for j in range(1,width-1):
+        max = 0
+        max_radi = 1
+        for radi in range(radius):
+            if hough_space[i][j][radi] > 1:
+                if hough_space[i][j][radi] > max:
+                    max = hough_space[i][j][radi]
+                    max_radi = radi
+        if max > 0:
+            color = (255, 0, 0)
+            img_output = cv2.circle(img_output, (i,j), max_radi, color, 1)
 
 # Calculate Hough Space
 # -----------------------------
@@ -141,8 +167,9 @@ for i in range(1,height-1):
 # # ---------------------------------------------------
 
 
+
 # print(image_dx)
-cv2.imwrite('output_angle.png',gradient_angle)
+cv2.imwrite('output.png',img_output)
 
 # print(gradient_magnitude)
 
