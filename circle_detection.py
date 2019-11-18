@@ -5,8 +5,8 @@ import math
 
 np.set_printoptions(threshold=sys.maxsize)
 
-img = cv2.imread('coins1.png',0)
-img_output = cv2.imread('coins1.png',1 )
+img = cv2.imread('dart_images/his_eq.jpg',0)
+img_output = cv2.imread('dart_images/his_eq.jpg',1)
 height, width = img.shape
 
 dx = np.array([[-1, 0, 1], [-2, 0, 2],[-1, 0, 1]], np.int32)
