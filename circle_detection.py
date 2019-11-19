@@ -3,13 +3,16 @@ import cv2
 import sys
 import math
 import os
+import collections
+from shapely.geometry import LineString
+
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
 os.chdir(dname)
 
 np.set_printoptions(threshold=sys.maxsize)
 
-input = 'dart_images/dart14.jpg'
+input = 'dart_images/14_eq.jpg'
 img = cv2.imread(input,0)
 img_grey = cv2.imread(input,0)
 img_output = cv2.imread(input,1)
@@ -23,18 +26,20 @@ radius = int(width/2)
 hough_space = np.zeros((height,width,radius),np.int32)
 hough_space_output = np.zeros((height,width),np.float32)
 hough_space_max_r = np.zeros((height,width),np.float32)
-hough_space_gradient_threshold = 100
+hough_space_gradient_threshold = 85
 
 def detect_and_frame(img,img_grey):
     cascadePath = "dart_board.xml"
+
     # normailising light
     cascade = cv2.CascadeClassifier(cascadePath)
     cv2.equalizeHist( img_grey, img_grey )
     faceRect = cascade.detectMultiScale( img_grey, scaleFactor=1.1, minNeighbors=1, minSize=(50,50), maxSize=(500,500),flags=cv2.CASCADE_SCALE_IMAGE )
-    color = (0,255,0)
-    for (x,y,width,height) in faceRect:
-        cv2.rectangle(img_output, (x,y), (x+width,y+height) , color, 2)
-    return img
+#     color = (0,255,0)
+#     for (x,y,width,height) in faceRect:
+#         # x is row , y is col
+#         cv2.rectangle(img_output, (x,y), (x+width,y+height) , color, 2)
+    return faceRect
 
 def convolution(img,kernel):
 
@@ -45,10 +50,6 @@ def convolution(img,kernel):
     for i in range(1,height):
         for j in range(1,width):
             cov = np.multiply(kernel,img_padded[i - 1 : i + 2, j - 1: j + 2])
-#             cov = 0
-#             for dx_1 in range(-1,2,1):
-#                 for dx_2 in range(-1,2,1):
-#                     cov = cov + (img_padded[i + dx_1][j + dx_2] * kernel[dx_1 + 1][dx_2+1])
             image_convoluted[i][j] = float(np.sum(cov) / 9)
 
     return image_convoluted
@@ -79,6 +80,7 @@ def sobel(img,dx,dy):
 
 def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold):
 
+    final_output = collections.defaultdict(dict)
     hough_space = np.zeros((height, width, radius), np.int32)
     hough_space_output = np.zeros((height, width), np.float32)
     hough_space_max_r = np.zeros((height, width), np.float32)
@@ -99,15 +101,20 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
                         hough_space[x1][y1][radi] += 1
 
     print("DONE : Cal 3D Hough Space")
-
+    count = 0
     for i in range(0,height):
         for j in range(0,width):
                 hough_space_output[i][j] = np.sum(hough_space[i][j])
                 hough_space_max_r[i][j] = np.argmax(hough_space[i][j])
                 if hough_space_output[i][j] > 18:
-                    color = (255,0,0)
-                    cv2.circle(img_output, (j,i), hough_space_max_r[i][j], color, 1)
+                    # stored as dictionary
+                    final_output[count]['row'] = i
+                    final_output[count]['column'] = j
+                    count += 1
 
+#                     color = (255,0,0)
+#                     cv2.circle(img_output, (j,i), hough_space_max_r[i][j], color, 1)
+    return final_output, count
 
 
 def line_detection_hough_space(gradient_magnitude, gradient_angle):
@@ -116,6 +123,8 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle):
     rho_max = np.ceil(np.sqrt(math.pow(width, 2) + math.pow(height, 2)))
     rhos = np.linspace(0, rho_max, rho_max)
     hough_space = np.zeros((len(rhos), len(thetas)), np.float32)
+    intersection_map = np.zeros((height, width), np.float32)
+    lines = []
     threshold = 65
 
     for i in range(height):
@@ -124,8 +133,8 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle):
                 for t in theta_idx[0]:
                     rho = round(i * math.sin(thetas[t]) + j * math.cos(thetas[t]))
                     hough_space[rho][t] += 1
-    # print(hough_space)
 
+    line_idx = 0
     for r in range(int(rho_max)):
         for t in theta_idx[0]:
             if(hough_space[r][t] > 38):
@@ -138,16 +147,66 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle):
                 x2 = int(x0 - 1000*(-b))
                 y2 = int(y0 - 1000*(a))
 
+                lines.append([line_idx, (x1, y1),(x2, y2)])
+                line_idx += 1
+
                 cv2.line(img_output,(x1,y1),(x2,y2),(255,0,0),1)
 
+    for line_1 in lines:
+        for line_2 in lines:
+            if(line_1[0] != line_2[0]):
+                line1 = LineString([line_1[1], line_1[2]])
+                line2 = LineString([line_2[1], line_2[2]])
+                intersect = line1.intersection(line2)
+                if not intersect.is_empty:
+                    print(intersect)
+                    if int(intersect.y) < height and int(intersect.x) < width and int(intersect.y) >= 0 and int(intersect.x) >= 0:
+                        intersection_map[int(intersect.y)][int(intersect.x)] += 1
 
-# image_dx,image_dy,gradient_magnitude,gradient_angle = sobel(img,dx,dy)
-# line_detection_hough_space(gradient_magnitude, gradient_angle)
-# # circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold)
-# cv2.imwrite('output.png',img_output)
+    return intersection_map
 
-detect_and_frame(img,img_grey)
+def filter_output(faceRect, circle_dict, circle_iterations, intersection_map):
+    detected_threshold = 100
+
+    for (x,y,width,height) in faceRect:
+        center_of_box_row = y + int(height/2)
+        center_of_box_col = x + int(width/2)
+        circle_count = 0
+        line_count = 0
+
+        for i in range(y,y + height):
+            for j in range(x, x + width):
+                distance = np.sqrt(np.power((i - center_of_box_row),2) + np.power((j - center_of_box_col),2))
+                individual_weight = (100 - distance) / distance
+                line_count += int(intersection_map[i][j] * individual_weight)
+
+
+        for circle_index in range(circle_iterations):
+            row = circle_dict[circle_index]['row']
+            col = circle_dict[circle_index]['column']
+
+            # track count by giving it a weight of how far it is from the center of the circle
+            if row > y and row < y + height and col > x and col < x + width:
+                print("Found one in center")
+                distance = np.sqrt(np.power((row - center_of_box_row),2) + np.power((col - center_of_box_col),2))
+                individual_weight = (100 - distance) / distance
+                circle_count += int(100 * individual_weight)
+
+        if circle_count > 20 and line_count > 20:
+            # if more than threshold , draw
+            color = (255,0,0)
+            cv2.rectangle(img_output, (x,y), (x+width,y+height) , color, 2)
+
+faceRect = detect_and_frame(img,img_grey)
+image_dx,image_dy,gradient_magnitude,gradient_angle = sobel(img,dx,dy)
+intersection_map = line_detection_hough_space(gradient_magnitude, gradient_angle)
+circle_dict, circle_count = circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold)
+filter_output(faceRect, circle_dict, circle_count, intersection_map)
+# print(faceRect)
+# print(circle_dict)
+
 cv2.imwrite( "output.png", img_output)
+
 
 
 
