@@ -2,6 +2,6 @@ import numpy as np
 import cv2
 import math
 
-img = cv2.imread('dart_images/dart1.jpg',0)
+img = cv2.imread('dart_images/de_noised.jpg',0)
 equ = cv2.equalizeHist(img)
 cv2.imwrite( "dart_images/his_eq.jpg", equ)

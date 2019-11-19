@@ -3,12 +3,12 @@ import cv2
 import sys
 import math
 
-img = cv2.imread('dart_images/dart13.jpg', 1)
-img_grey = cv2.imread('dart_images/dart13.jpg', 0)
+img = cv2.imread('dart_images/dart14.jpg', 1)
+img_grey = cv2.imread('dart_images/dart14.jpg', 0)
 
 
 def detect_and_frame(img,img_grey):
-    cascadePath = "dart_images/dart_board.xml"
+    cascadePath = "dart_board.xml"
     # normailising light
     cascade = cv2.CascadeClassifier(cascadePath)
     cv2.equalizeHist( img_grey, img_grey )
