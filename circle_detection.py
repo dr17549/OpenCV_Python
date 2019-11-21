@@ -12,23 +12,7 @@ os.chdir(dname)
 
 np.set_printoptions(threshold=sys.maxsize)
 
-input = 'dart_images/14_eq.jpg'
-img = cv2.imread(input,0)
-img_grey = cv2.imread(input,0)
-img_output = cv2.imread(input,1)
-height, width = img.shape
-
-dx = np.array([[-1, 0, 1], [-2, 0, 2],[-1, 0, 1]], np.int32)
-dy = np.array([[-1, -2, -1], [0, 0, 0],[1, 2, 1]], np.int32)
-
-radius = int(width/2)
-
-hough_space = np.zeros((height,width,radius),np.int32)
-hough_space_output = np.zeros((height,width),np.float32)
-hough_space_max_r = np.zeros((height,width),np.float32)
-hough_space_gradient_threshold = 85
-
-def detect_and_frame(img,img_grey):
+def detect_and_frame(img_output,img_grey):
     cascadePath = "dart_board.xml"
 
     # normailising light
@@ -150,7 +134,7 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle):
                 lines.append([line_idx, (x1, y1),(x2, y2)])
                 line_idx += 1
 
-                cv2.line(img_output,(x1,y1),(x2,y2),(255,0,0),1)
+                # cv2.line(img_output,(x1,y1),(x2,y2),(255,0,0),1)
 
     for line_1 in lines:
         for line_2 in lines:
@@ -158,54 +142,73 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle):
                 line1 = LineString([line_1[1], line_1[2]])
                 line2 = LineString([line_2[1], line_2[2]])
                 intersect = line1.intersection(line2)
-                if not intersect.is_empty:
-                    print(intersect)
+                if not intersect.is_empty and intersect.geom_type == 'Point':
                     if int(intersect.y) < height and int(intersect.x) < width and int(intersect.y) >= 0 and int(intersect.x) >= 0:
                         intersection_map[int(intersect.y)][int(intersect.x)] += 1
 
     return intersection_map
 
-def filter_output(faceRect, circle_dict, circle_iterations, intersection_map):
-    detected_threshold = 100
+def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, img_output):
+    # score threshold for output
+    detected_threshold = 600
 
+    # iterate each box of viola jones dartboard detection
     for (x,y,width,height) in faceRect:
         center_of_box_row = y + int(height/2)
         center_of_box_col = x + int(width/2)
         circle_count = 0
         line_count = 0
 
-        for i in range(y,y + height):
+        # calculate score for lines intersection inside the viola jones box
+        for i in range(y, y + height):
             for j in range(x, x + width):
                 distance = np.sqrt(np.power((i - center_of_box_row),2) + np.power((j - center_of_box_col),2))
-                individual_weight = (100 - distance) / distance
+                individual_weight = (100 - distance) / 100
                 line_count += int(intersection_map[i][j] * individual_weight)
 
-
+        # calculate score for circle inside the viola jones box
         for circle_index in range(circle_iterations):
             row = circle_dict[circle_index]['row']
             col = circle_dict[circle_index]['column']
 
             # track count by giving it a weight of how far it is from the center of the circle
             if row > y and row < y + height and col > x and col < x + width:
-                print("Found one in center")
                 distance = np.sqrt(np.power((row - center_of_box_row),2) + np.power((col - center_of_box_col),2))
-                individual_weight = (100 - distance) / distance
+                individual_weight = (100 - distance) / 100
                 circle_count += int(100 * individual_weight)
 
-        if circle_count > 20 and line_count > 20:
+        if circle_count > detected_threshold and line_count > detected_threshold:
             # if more than threshold , draw
-            color = (255,0,0)
+            color = (0,255,0)
             cv2.rectangle(img_output, (x,y), (x+width,y+height) , color, 2)
 
-faceRect = detect_and_frame(img,img_grey)
-image_dx,image_dy,gradient_magnitude,gradient_angle = sobel(img,dx,dy)
-intersection_map = line_detection_hough_space(gradient_magnitude, gradient_angle)
-circle_dict, circle_count = circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold)
-filter_output(faceRect, circle_dict, circle_count, intersection_map)
-# print(faceRect)
-# print(circle_dict)
+# Main function
+if __name__ == "__main__":
 
-cv2.imwrite( "output.png", img_output)
+    input = 'dart_images/dart14.jpg'
+    img = cv2.imread(input, 0)
+    img_grey = cv2.imread(input, 0)
+    img_output = cv2.imread(input, 1)
+    height, width = img.shape
+
+    dx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], np.int32)
+    dy = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], np.int32)
+
+    radius = int(width / 2)
+    hough_space_gradient_threshold = 85
+
+    # viola jones
+    faceRect = detect_and_frame(img,img_grey)
+    # calculate all the convolutions pre-calculations
+    image_dx,image_dy,gradient_magnitude,gradient_angle = sobel(img,dx,dy)
+    # calculation line detection and output results
+    intersection_map = line_detection_hough_space(gradient_magnitude, gradient_angle)
+    # calculate circle detection
+    circle_dict, circle_count = circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold)
+    # implement pipeline and filter of detections
+    filter_output(faceRect, circle_dict, circle_count, intersection_map, img_output)
+    # write output on to image
+    cv2.imwrite("output.png", img_output)
 
 
 
