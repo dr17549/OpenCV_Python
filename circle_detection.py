@@ -19,10 +19,11 @@ def detect_and_frame(img_output,img_grey):
     cascade = cv2.CascadeClassifier(cascadePath)
     cv2.equalizeHist( img_grey, img_grey )
     faceRect = cascade.detectMultiScale( img_grey, scaleFactor=1.1, minNeighbors=1, minSize=(50,50), maxSize=(500,500),flags=cv2.CASCADE_SCALE_IMAGE )
-#     color = (0,255,0)
-#     for (x,y,width,height) in faceRect:
-#         # x is row , y is col
-#         cv2.rectangle(img_output, (x,y), (x+width,y+height) , color, 2)
+    color = (255,0,0)
+    # for (x,y,width,height) in faceRect:
+        # x is row , y is col
+        # cv2.rectangle(img_output, (x,y), (x+width,y+height) , color, 2)
+    print("Finish the viola jones detection")
     return faceRect
 
 def convolution(img,kernel):
@@ -62,7 +63,7 @@ def sobel(img,dx,dy):
     return image_dx,image_dy,gradient_magnitude,gradient_angle
 
 
-def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold):
+def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold, hough_circle_threshold):
 
     final_output = collections.defaultdict(dict)
     hough_space = np.zeros((height, width, radius), np.int32)
@@ -90,38 +91,39 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
         for j in range(0,width):
                 hough_space_output[i][j] = np.sum(hough_space[i][j])
                 hough_space_max_r[i][j] = np.argmax(hough_space[i][j])
-                if hough_space_output[i][j] > 18:
+                if hough_space_output[i][j] > hough_circle_threshold:
                     # stored as dictionary
                     final_output[count]['row'] = i
                     final_output[count]['column'] = j
                     count += 1
 
-#                     color = (255,0,0)
-#                     cv2.circle(img_output, (j,i), hough_space_max_r[i][j], color, 1)
+                    color = (255,20,147)
+                    # cv2.circle(img_output, (j,i), hough_space_max_r[i][j], color, 1)
     return final_output, count
 
 
-def line_detection_hough_space(gradient_magnitude, gradient_angle):
+def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gradient_threshold, hough_line_threshold):
     thetas = np.deg2rad(np.arange(-90, 90))
     theta_idx = np.nonzero(thetas)
     rho_max = np.ceil(np.sqrt(math.pow(width, 2) + math.pow(height, 2)))
-    rhos = np.linspace(0, rho_max, rho_max)
+    rhos = np.linspace(0, int(rho_max), int(rho_max))
     hough_space = np.zeros((len(rhos), len(thetas)), np.float32)
     intersection_map = np.zeros((height, width), np.float32)
     lines = []
-    threshold = 65
 
+    print("LD : Calculating rho and theta ")
     for i in range(height):
         for j in range(width):
-            if(gradient_magnitude[i][j] > threshold):
+            if(gradient_magnitude[i][j] > hough_line_gradient_threshold):
                 for t in theta_idx[0]:
                     rho = round(i * math.sin(thetas[t]) + j * math.cos(thetas[t]))
                     hough_space[rho][t] += 1
 
     line_idx = 0
+    print("LD : Calculating x1,y1 and x2,y2 ")
     for r in range(int(rho_max)):
         for t in theta_idx[0]:
-            if(hough_space[r][t] > 38):
+            if(hough_space[r][t] > hough_line_threshold):
                 a = np.cos(thetas[t])
                 b = np.sin(thetas[t])
                 x0 = a*r
@@ -134,8 +136,10 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle):
                 lines.append([line_idx, (x1, y1),(x2, y2)])
                 line_idx += 1
 
-                # cv2.line(img_output,(x1,y1),(x2,y2),(255,0,0),1)
+                # cv2.line(img_output,(x1,y1),(x2,y2),(0,0,255),1)
 
+    print("LD : Calculating intersection ")
+    intersection_count = 0
     for line_1 in lines:
         for line_2 in lines:
             if(line_1[0] != line_2[0]):
@@ -144,13 +148,15 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle):
                 intersect = line1.intersection(line2)
                 if not intersect.is_empty and intersect.geom_type == 'Point':
                     if int(intersect.y) < height and int(intersect.x) < width and int(intersect.y) >= 0 and int(intersect.x) >= 0:
+                        intersection_count += 1
                         intersection_map[int(intersect.y)][int(intersect.x)] += 1
 
-    return intersection_map
+    return intersection_map, intersection_count
 
-def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, img_output):
+def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, img_output, intersection_count):
     # score threshold for output
-    detected_threshold = 600
+    detected_threshold = intersection_count * 0.1
+    circle_detected_threshold = circle_iterations * 0.1
 
     # iterate each box of viola jones dartboard detection
     for (x,y,width,height) in faceRect:
@@ -177,7 +183,7 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
                 individual_weight = (100 - distance) / 100
                 circle_count += int(100 * individual_weight)
 
-        if circle_count > detected_threshold and line_count > detected_threshold:
+        if circle_count > circle_detected_threshold and line_count > detected_threshold:
             # if more than threshold , draw
             color = (0,255,0)
             cv2.rectangle(img_output, (x,y), (x+width,y+height) , color, 2)
@@ -195,18 +201,21 @@ if __name__ == "__main__":
     dy = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], np.int32)
 
     radius = int(width / 2)
-    hough_space_gradient_threshold = 85
+    hough_space_gradient_threshold = 80
+    hough_circle_threshold = 20
+    hough_line_gradient_threshold = 70
+    hough_line_threshold = 50
 
     # viola jones
     faceRect = detect_and_frame(img,img_grey)
     # calculate all the convolutions pre-calculations
     image_dx,image_dy,gradient_magnitude,gradient_angle = sobel(img,dx,dy)
     # calculation line detection and output results
-    intersection_map = line_detection_hough_space(gradient_magnitude, gradient_angle)
+    intersection_map, intersection_count = line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gradient_threshold, hough_line_threshold)
     # calculate circle detection
-    circle_dict, circle_count = circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold)
+    circle_dict, circle_count = circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold, hough_circle_threshold)
     # implement pipeline and filter of detections
-    filter_output(faceRect, circle_dict, circle_count, intersection_map, img_output)
+    filter_output(faceRect, circle_dict, circle_count, intersection_map, img_output, intersection_count)
     # write output on to image
     cv2.imwrite("output.png", img_output)
 
