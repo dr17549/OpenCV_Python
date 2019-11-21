@@ -97,7 +97,7 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
                     final_output[count]['column'] = j
                     count += 1
 
-                    color = (255,20,147)
+                    color = (0,0,255)
                     # cv2.circle(img_output, (j,i), hough_space_max_r[i][j], color, 1)
     return final_output, count
 
@@ -155,8 +155,9 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
 
 def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, img_output, intersection_count):
     # score threshold for output
-    detected_threshold = intersection_count * 0.1
-    circle_detected_threshold = circle_iterations * 0.1
+    print("Start Filtering")
+    detected_threshold = intersection_count * 0.03
+    circle_detected_threshold = circle_iterations * 0.01
 
     # iterate each box of viola jones dartboard detection
     for (x,y,width,height) in faceRect:
@@ -183,15 +184,23 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
                 individual_weight = (100 - distance) / 100
                 circle_count += int(100 * individual_weight)
 
-        if circle_count > circle_detected_threshold and line_count > detected_threshold:
-            # if more than threshold , draw
-            color = (0,255,0)
-            cv2.rectangle(img_output, (x,y), (x+width,y+height) , color, 2)
+        # ignore the circles if there are not inside
+        if circle_count == 0:
+            c_threshold = -1
+        else:
+            c_threshold = circle_detected_threshold
+
+        total_threshold = (0.7 * detected_threshold) + (0.3 * c_threshold)
+
+        if (0.7 * line_count) + (0.3 * circle_count) > total_threshold:
+                # if more than threshold , draw
+                color = (0,255,0)
+                cv2.rectangle(img_output, (x,y), (x+width,y+height) , color, 2)
 
 # Main function
 if __name__ == "__main__":
 
-    input = 'dart_images/dart14.jpg'
+    input = 'dart_images/dart12.jpg'
     img = cv2.imread(input, 0)
     img_grey = cv2.imread(input, 0)
     img_output = cv2.imread(input, 1)
@@ -201,7 +210,7 @@ if __name__ == "__main__":
     dy = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], np.int32)
 
     radius = int(width / 2)
-    hough_space_gradient_threshold = 80
+    hough_space_gradient_threshold = 90
     hough_circle_threshold = 20
     hough_line_gradient_threshold = 70
     hough_line_threshold = 50
