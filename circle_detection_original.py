@@ -136,7 +136,7 @@ for i in range(1,height-1):
 #             color = (255,0,0)
 #             cv2.circle(img_output, (j,i), hough_space_max_r[i][j], color, 1)
 
-# Normalizer for output
+# Normalizer for 65_threshold_output
 # ---------------------------------------------------
 # max = 0
 # for i in range(1,height-1):
@@ -155,7 +155,7 @@ for i in range(1,height-1):
 #     for j in range(1, width - 1):
 #         gradient_magnitude[i][j] = (gradient_magnitude[i][j] - min) * 255 / (max-min)
 # ---------------------------------------------------
-# Normalizer for output
+# Normalizer for 65_threshold_output
 # # ---------------------------------------------------
 # max = 0
 # for i in range(1,height-1):

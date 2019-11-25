@@ -142,7 +142,7 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
     intersection_count = 0
     for line_1 in lines:
         for line_2 in lines:
-            if(line_1[0] != line_2[0]):
+            if(line_1[0] < line_2[0]):
                 line1 = LineString([line_1[1], line_1[2]])
                 line2 = LineString([line_2[1], line_2[2]])
                 intersect = line1.intersection(line2)
@@ -153,11 +153,15 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
 
     return intersection_map, intersection_count
 
-def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, img_output, intersection_count):
-    # score threshold for output
+def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, img_output, intersection_count, img_grey):
+    # score threshold for 65_threshold_output
     print("FO : Start Filtering")
-    detected_threshold = intersection_count * 0.03
-    circle_detected_threshold = circle_iterations * 0.01
+    line_detected_threshold = intersection_count * 0.01
+    circle_detected_threshold = circle_iterations * 0.03
+    # decision here
+    min_grey = img_grey.min()
+    max_grey = img_grey.max()
+    grey_counter_threshold = ((max_grey - min_grey) * 0.4) + min_grey
 
     # iterate each box of viola jones dartboard detection
     for (x,y,width,height) in faceRect:
@@ -165,7 +169,11 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
         center_of_box_col = x + int(width/2)
         circle_count = 0
         line_count = 0
-
+        white_count = 0
+        for i in range(y, y + height):
+            for j in range(x, x + width):
+                if img_grey[i][j] < grey_counter_threshold:
+                    white_count += 1
         # calculate score for lines intersection inside the viola jones box
         for i in range(y, y + height):
             for j in range(x, x + width):
@@ -190,9 +198,11 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
         else:
             c_threshold = circle_detected_threshold
 
-        total_threshold = (0.75 * detected_threshold) + (0.25 * c_threshold)
+        grey_detected_threshold = 0.3 * (height * width)
+        total_threshold = (0.75 * line_detected_threshold) + (0.25 * c_threshold)
 
         if (0.75 * line_count) + (0.25 * circle_count) > total_threshold:
+        # if white_count > grey_detected_threshold:
                 # if more than threshold , draw
                 color = (0,255,0)
                 cv2.rectangle(img_output, (x,y), (x+width,y+height) , color, 2)
@@ -200,33 +210,35 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
 # Main function
 if __name__ == "__main__":
 
-    input = 'dart_images/dart0.jpg'
-    img = cv2.imread(input, 0)
-    img_grey = cv2.imread(input, 0)
-    img_output = cv2.imread(input, 1)
-    height, width = img.shape
+    for number in range(0,16):
+        num = str(number)
+        input = 'dart_images/dart' + num + '.jpg'
+        img = cv2.imread(input, 0)
+        img_grey = cv2.imread(input, 0)
+        img_output = cv2.imread(input, 1)
+        height, width = img.shape
 
-    dx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], np.int32)
-    dy = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], np.int32)
+        dx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], np.int32)
+        dy = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], np.int32)
 
-    radius = int(width / 2)
-    hough_space_gradient_threshold = 85
-    hough_circle_threshold = 20
-    hough_line_gradient_threshold = 66
-    hough_line_threshold = 50
+        radius = int(width / 2)
+        hough_space_gradient_threshold = 85
+        hough_circle_threshold = 20
+        hough_line_gradient_threshold = 66
+        hough_line_threshold = 50
 
-    # viola jones
-    faceRect = detect_and_frame(img,img_grey)
-    # calculate all the convolutions pre-calculations
-    image_dx,image_dy,gradient_magnitude,gradient_angle = sobel(img,dx,dy)
-    # calculation line detection and output results
-    intersection_map, intersection_count = line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gradient_threshold, hough_line_threshold)
-    # calculate circle detection
-    circle_dict, circle_count = circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold, hough_circle_threshold, radius)
-    # implement pipeline and filter of detections
-    filter_output(faceRect, circle_dict, circle_count, intersection_map, img_output, intersection_count)
-    # write output on to image
-    cv2.imwrite("output.png", img_output)
+        # viola jones
+        faceRect = detect_and_frame(img,img_grey)
+        # calculate all the convolutions pre-calculations
+        image_dx,image_dy,gradient_magnitude,gradient_angle = sobel(img,dx,dy)
+        # calculation line detection and 65_threshold_output results
+        intersection_map, intersection_count = line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gradient_threshold, hough_line_threshold)
+        # calculate circle detection
+        circle_dict, circle_count = circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold, hough_circle_threshold, radius)
+        # implement pipeline and filter of detections
+        filter_output(faceRect, circle_dict, circle_count, intersection_map, img_output, intersection_count, img_grey)
+        # write 65_threshold_output on to image
+        cv2.imwrite("66_t_threshold/output_" + num + "_.png", img_output)
 
 
 

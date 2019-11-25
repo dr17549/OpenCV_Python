@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 import math
-
-img = cv2.imread('dart_images/dart14.jpg',0)
+num = '8'
+img = cv2.imread('dart_images/dart' + num +'.jpg',0)
 equ = cv2.equalizeHist(img)
-cv2.imwrite( "dart_images/14_eq.jpg", equ)
+cv2.imwrite( "eq_his/dart" + num + ".jpg", equ)

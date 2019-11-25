@@ -3,8 +3,8 @@ import cv2
 import sys
 import math
 
-img = cv2.imread('dart_images/dart14.jpg', 1)
-img_grey = cv2.imread('dart_images/dart14.jpg', 0)
+img = cv2.imread('dart_images/dart7.jpg', 1)
+img_grey = cv2.imread('dart_images/dart7.jpg', 0)
 
 
 def detect_and_frame(img,img_grey):
@@ -19,4 +19,4 @@ def detect_and_frame(img,img_grey):
     return img
 
 detect_and_frame(img,img_grey)
-cv2.imwrite( "dart_images/detected.jpg", img)
+cv2.imwrite( "dart_images/detected_7.jpg", img)
