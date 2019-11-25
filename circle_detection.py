@@ -200,7 +200,7 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
 # Main function
 if __name__ == "__main__":
 
-    input = 'dart_images/dart15.jpg'
+    input = 'dart_images/dart0.jpg'
     img = cv2.imread(input, 0)
     img_grey = cv2.imread(input, 0)
     img_output = cv2.imread(input, 1)
@@ -210,9 +210,9 @@ if __name__ == "__main__":
     dy = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], np.int32)
 
     radius = int(width / 2)
-    hough_space_gradient_threshold = 90
+    hough_space_gradient_threshold = 85
     hough_circle_threshold = 20
-    hough_line_gradient_threshold = 70
+    hough_line_gradient_threshold = 66
     hough_line_threshold = 50
 
     # viola jones
