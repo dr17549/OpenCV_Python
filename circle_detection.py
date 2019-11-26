@@ -5,6 +5,7 @@ import math
 import os
 import collections
 from shapely.geometry import LineString
+import matplotlib.pyplot as plt
 
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
@@ -63,7 +64,7 @@ def sobel(img,dx,dy):
     return image_dx,image_dy,gradient_magnitude,gradient_angle
 
 
-def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold, hough_circle_threshold, radius):
+def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold, hough_circle_threshold, radius, twod_circle_space):
 
     final_output = collections.defaultdict(dict)
     hough_space = np.zeros((height, width, radius), np.int32)
@@ -98,7 +99,12 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
                     count += 1
 
                     color = (0,0,255)
-                    # cv2.circle(img_output, (j,i), hough_space_max_r[i][j], color, 1)
+                    # cv2.circle(twod_circle_space, (j,i), hough_space_max_r[i][j], color, 1)
+    # cv2.imwrite("circle_space_" + num + "_.png", twod_circle_space)
+
+    # PLOT GRAPH
+    # imgplot = plt.imshow(hough_space_output)
+    # plt.show()
     return final_output, count
 
 
@@ -136,9 +142,9 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
                 lines.append([line_idx, (x1, y1),(x2, y2)])
                 line_idx += 1
 
-                # cv2.line(img_output,(x1,y1),(x2,y2),(0,0,255),1)
-
-    print("LD : Calculating intersection ")
+                cv2.line(twod_circle_space,(x1,y1),(x2,y2),(0,0,255),1)
+    # cv2.imwrite("line_space_" + num + "_.png", twod_circle_space)
+    # print("LD : Calculating intersection ")
     intersection_count = 0
     for line_1 in lines:
         for line_2 in lines:
@@ -151,6 +157,9 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
                         intersection_count += 1
                         intersection_map[int(intersect.y)][int(intersect.x)] += 1
 
+    # PLOT
+    # imgplot = plt.imshow(hough_space)
+    # plt.show()
     return intersection_map, intersection_count
 
 def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, img_output, intersection_count, img_grey):
@@ -170,10 +179,13 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
         circle_count = 0
         line_count = 0
         white_count = 0
+
+        # calculate whiteness score
         for i in range(y, y + height):
             for j in range(x, x + width):
                 if img_grey[i][j] < grey_counter_threshold:
                     white_count += 1
+
         # calculate score for lines intersection inside the viola jones box
         for i in range(y, y + height):
             for j in range(x, x + width):
@@ -194,14 +206,14 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
 
         # ignore the circles if there are not inside
         if circle_count == 0:
-            c_threshold = -1
+            c_threshold = 0
         else:
             c_threshold = circle_detected_threshold
 
         grey_detected_threshold = 0.3 * (height * width)
-        total_threshold = (0.75 * line_detected_threshold) + (0.25 * c_threshold)
+        total_threshold = (0.65 * line_detected_threshold) + (0.20 * c_threshold) + (0.15 * grey_detected_threshold)
 
-        if (0.75 * line_count) + (0.25 * circle_count) > total_threshold:
+        if (0.75 * line_count) + (0.25 * circle_count) + (0.15 * white_count) > total_threshold:
         # if white_count > grey_detected_threshold:
                 # if more than threshold , draw
                 color = (0,255,0)
@@ -212,11 +224,13 @@ if __name__ == "__main__":
 
     for number in range(0,16):
         num = str(number)
-        input = 'dart_images/dart' + num + '.jpg'
+        input = 'de_noised/dart' + num + '.jpg'
         img = cv2.imread(input, 0)
         img_grey = cv2.imread(input, 0)
         img_output = cv2.imread(input, 1)
         height, width = img.shape
+
+        twod_circle_space = np.zeros((height, width,3), dtype=np.uint8)
 
         dx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], np.int32)
         dy = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], np.int32)
@@ -227,6 +241,7 @@ if __name__ == "__main__":
         hough_line_gradient_threshold = 66
         hough_line_threshold = 50
 
+
         # viola jones
         faceRect = detect_and_frame(img,img_grey)
         # calculate all the convolutions pre-calculations
@@ -234,12 +249,11 @@ if __name__ == "__main__":
         # calculation line detection and 65_threshold_output results
         intersection_map, intersection_count = line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gradient_threshold, hough_line_threshold)
         # calculate circle detection
-        circle_dict, circle_count = circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold, hough_circle_threshold, radius)
+        circle_dict, circle_count = circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold, hough_circle_threshold, radius, twod_circle_space)
         # implement pipeline and filter of detections
         filter_output(faceRect, circle_dict, circle_count, intersection_map, img_output, intersection_count, img_grey)
         # write 65_threshold_output on to image
-        cv2.imwrite("66_t_threshold/output_" + num + "_.png", img_output)
-
+        cv2.imwrite("66_include_grey/output_" + num + "_.png", img_output)
 
 
 
