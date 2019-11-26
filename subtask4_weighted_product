@@ -180,9 +180,9 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
         line_count = 0
         white_count = 0
 
-        circle_weight = 0.22
+        circle_weight = 0.25
         line_weight = 0.7
-        grey_weight = 0.08
+        grey_weight = 0.05
 
         # calculate whiteness score
         for i in range(y, y + height):
@@ -215,9 +215,10 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
             c_threshold = circle_detected_threshold
 
         grey_detected_threshold = 0.3 * (height * width)
-        total_threshold = (line_weight * line_detected_threshold) + (circle_weight * c_threshold) + (grey_weight * grey_detected_threshold)
+        total_threshold = pow(line_detected_threshold, line_weight) * pow(c_threshold, circle_weight) * pow(grey_detected_threshold, grey_weight)
+        # total_threshold = (line_weight * line_detected_threshold) * (circle_weight * c_threshold) * (grey_weight * grey_detected_threshold)
 
-        if (line_weight * line_count) + (circle_weight * circle_count) + (grey_weight * white_count) > total_threshold:
+        if pow(line_count, line_weight) * pow(circle_count, circle_weight) * pow(white_count, grey_weight) > total_threshold:
             # if more than threshold , draw
             color = (0,255,0)
             cv2.rectangle(img_output, (x,y), (x+width,y+height) , color, 2)
@@ -267,7 +268,7 @@ if __name__ == "__main__":
         # implement pipeline and filter of detections
         filter_output(faceRect, circle_dict, circle_count, intersection_map, img_output, intersection_count, img_grey)
         # write 65_threshold_output on to image
-        cv2.imwrite("70_22_08/output_" + num + "_.png", img_output)
+        cv2.imwrite("product_70_25_05/output_" + num + "_.png", img_output)
 
 
 
