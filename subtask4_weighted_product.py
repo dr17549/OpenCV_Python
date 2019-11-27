@@ -58,7 +58,7 @@ def sobel(img,dx,dy):
     image_dx = convolution(img,dx)
     image_dy = convolution(img,dy)
 
-    gradient_magnitude = np.sqrt(np.power(image_dx,2) + np.power(image_dx,2))
+    gradient_magnitude = np.sqrt(np.power(image_dy,2) + np.power(image_dx,2))
     gradient_angle = np.arctan2(image_dy,image_dx)
 
     return image_dx,image_dy,gradient_magnitude,gradient_angle
@@ -109,31 +109,39 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
 
 
 def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gradient_threshold, hough_line_threshold):
-    thetas = np.deg2rad(np.arange(-90, 90))
-    theta_idx = np.nonzero(thetas)
     rho_max = np.ceil(np.sqrt(math.pow(width, 2) + math.pow(height, 2)))
     rhos = np.linspace(0, int(rho_max), int(rho_max))
-    hough_space = np.zeros((len(rhos), len(thetas)), np.float32)
+    hough_space = np.zeros((2*(width+height), 360), np.float32)
     intersection_map = np.zeros((height, width), np.float32)
     lines = []
+    angleRange = 1
 
     print("LD : Calculating rho and theta ")
+    print(hough_space.shape)
     for i in range(height):
         for j in range(width):
             if(gradient_magnitude[i][j] > hough_line_gradient_threshold):
-                for t in theta_idx[0]:
-                    rho = round(i * math.sin(thetas[t]) + j * math.cos(thetas[t]))
-                    hough_space[rho][t] += 1
+
+                directionVal = gradient_angle[i][j]
+                directionTheta = round(np.rad2deg(directionVal) if (directionVal >= 0) else 360 + np.rad2deg(directionVal))
+                
+                if(directionTheta + angleRange < 360):
+                    theta_min = 0 if (directionTheta - angleRange < 0) else int(directionTheta - angleRange)
+                    theta_max = 359 if (directionTheta + angleRange > 359) else int(directionTheta + angleRange)
+                    for t in range(theta_min, theta_max+1, 1):
+                        radians = np.deg2rad(t)
+                        rho = round(i * math.sin(radians) + j * math.cos(radians) + width + height) 
+                        hough_space[rho][t] += 1
 
     line_idx = 0
     print("LD : Calculating x1,y1 and x2,y2 ")
-    for r in range(int(rho_max)):
-        for t in theta_idx[0]:
+    for r in range(hough_space.shape[0]):
+        for t in range(hough_space.shape[1]):
             if(hough_space[r][t] > hough_line_threshold):
-                a = np.cos(thetas[t])
-                b = np.sin(thetas[t])
-                x0 = a*r
-                y0 = b*r
+                a = np.cos(np.deg2rad(t))
+                b = np.sin(np.deg2rad(t))
+                x0 = a*(r - width - height)
+                y0 = b*(r - width - height)
                 x1 = int(x0 + 1000*(-b))
                 y1 = int(y0 + 1000*(a))
                 x2 = int(x0 - 1000*(-b))
@@ -143,7 +151,7 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
                 line_idx += 1
 
                 cv2.line(twod_circle_space,(x1,y1),(x2,y2),(0,0,255),1)
-    # cv2.imwrite("line_space_" + num + "_.png", twod_circle_space)
+    cv2.imwrite("line_space_" + num + "_.png", twod_circle_space)
     print("LD : Calculating intersection ")
     intersection_count = 0
     for line_1 in lines:
@@ -254,7 +262,7 @@ if __name__ == "__main__":
         hough_space_gradient_threshold = 85
         hough_circle_threshold = 20
         hough_line_gradient_threshold = 66
-        hough_line_threshold = 50
+        hough_line_threshold = 30
 
 
         # viola jones
