@@ -214,7 +214,7 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
     intersection_map = np.zeros((height, width), np.float32)
     lines = []
     angleRange = 1
-    line_combination_threshold = np.deg2rad(0.3)
+    line_combination_threshold = np.deg2rad(10)
 
     print("LD : Calculating rho and theta ")
     print(hough_space.shape)
@@ -261,18 +261,15 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
                 line2 = LineString([line_2[1], line_2[2]])
                 intersect = line1.intersection(line2)
                 if not intersect.is_empty and intersect.geom_type == 'Point':
-                    slope_l1 = (math.pi / 2) if (line_1[2][0] - line_1[1][0] == 0) else np.arctan(
-                        line_1[2][1] - line_1[1][1]) / (line_1[2][0] - line_1[1][0])
-                    slope_l2 = (math.pi / 2) if (line_2[2][0] - line_2[1][0] == 0) else np.arctan(
-                        line_2[2][1] - line_2[1][1]) / (line_2[2][0] - line_2[1][0])
+                    slope_l1 = (math.pi / 2) if (line_1[2][0] - line_1[1][0] == 0) else np.arctan((line_1[2][1] - line_1[1][1]) / (line_1[2][0] - line_1[1][0]))
+                    slope_l2 = (math.pi / 2) if (line_2[2][0] - line_2[1][0] == 0) else np.arctan((line_2[2][1] - line_2[1][1]) / (line_2[2][0] - line_2[1][0]))
                     if (abs(slope_l2 - slope_l1) < line_combination_threshold):
-                        line_2[0] = -1
+                        line_1[0] = -1
                     elif (abs(slope_l2 - slope_l1) >= line_combination_threshold):
-                        if int(intersect.y) < height and int(intersect.x) < width and int(intersect.y) >= 0 and int(
-                                intersect.x) >= 0:
+                        if int(intersect.y) < height and int(intersect.x) < width and int(intersect.y) >= 0 and int(intersect.x) >= 0:
                             intersection_count += 1
                             intersection_map[int(intersect.y)][int(intersect.x)] += 1
-
+    print(intersection_count)
     for line in lines:
         if line[0] != -1:
             cv2.line(twod_line_space, line[1], line[2], (0, 0, 255), 1)
