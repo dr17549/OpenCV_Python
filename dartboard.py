@@ -285,12 +285,13 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
     # imgplot = plt.imshow(hough_space)
     # plt.show()
     return intersection_map, intersection_count
+
 def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, img_output, intersection_count, img_grey):
     # score threshold for 65_threshold_output
     all_positive_areas = collections.defaultdict(dict)
     positive_boxes_count = 0
     print("FO : Start Filtering")
-    line_detected_threshold = intersection_count * 0.1
+    line_detected_threshold = intersection_count * 0.05
     circle_detected_threshold = circle_iterations * 0.12
     # decision here
     min_grey = img_grey.min()
@@ -390,7 +391,7 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
 # Main function
 if __name__ == "__main__":
 
-    for number in range(10,16):
+    for number in range(0,16):
         num = str(number)
         print(" ------ Calculating :  " + num + " -----------")
         # for denoising images
@@ -418,7 +419,7 @@ if __name__ == "__main__":
         radius = int(width / 3)
         hough_space_gradient_threshold = 40
         hough_circle_threshold = 20
-        hough_line_gradient_threshold = 40
+        hough_line_gradient_threshold = 43
         hough_line_threshold = 15
 
 
