@@ -418,7 +418,7 @@ if __name__ == "__main__":
         radius = int(width / 3)
         hough_space_gradient_threshold = 40
         hough_circle_threshold = 20
-        hough_line_gradient_threshold = 43
+        hough_line_gradient_threshold = 40
         hough_line_threshold = 15
 
 
