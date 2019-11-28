@@ -393,7 +393,7 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
 # Main function
 if __name__ == "__main__":
 
-    for number in range(10,16):
+    for number in range(0,16):
         num = str(number)
         print(" ------ Calculating :  " + num + " -----------")
         # for denoising images
@@ -421,7 +421,7 @@ if __name__ == "__main__":
         radius = int(width / 3)
         hough_space_gradient_threshold = 50
         hough_circle_threshold = 20
-        hough_line_gradient_threshold = 40
+        hough_line_gradient_threshold = 38
         hough_line_threshold = 15
 
 
