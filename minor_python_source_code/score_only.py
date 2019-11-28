@@ -210,6 +210,7 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
     line_detected_threshold = intersection_count * 0.01
     circle_detected_threshold = circle_iterations * 0.03
     # decision here
+    all_scores = []
     min_grey = img_grey.min()
     max_grey = img_grey.max()
     grey_counter_threshold = ((max_grey - min_grey) * 0.4) + min_grey
@@ -225,7 +226,7 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
         circle_weight = 0.25
         line_weight = 0.7
         grey_weight = 0.05
-
+        all_scores = []
         # calculate whiteness score
         for i in range(y, y + height):
             for j in range(x, x + width):
@@ -267,35 +268,20 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
             all_positive_areas[positive_boxes_count]['width'] = width
             all_positive_areas[positive_boxes_count]['height'] = height
             all_positive_areas[positive_boxes_count]['skip'] = False
+            all_positive_areas[positive_boxes_count]['score'] = individual_acc_score
             positive_boxes_count += 1
+            all_scores = all_scores + [individual_acc_score]
+        else:
+            all_scores += [0]
+
+    avg_score = sum(all_scores) / positive_boxes_count
 
     # take out the areas that intersect too much
     for iterative in range(positive_boxes_count):
-        for inner_iteration in range(positive_boxes_count):
-            if iterative != inner_iteration:
-                if not all_positive_areas[inner_iteration]['skip'] and not all_positive_areas[iterative]['skip']:
-                    area_intersect,smaller = rectangle(all_positive_areas[inner_iteration], all_positive_areas[iterative])
+        if all_positive_areas[iterative]['score'] < avg_score:
+            all_positive_areas[iterative]['skip'] = True
 
-                    if area_intersect > 0.4:
-                        if smaller == 'a':
-                            smaller_index = inner_iteration
-                            larger_index = iterative
-
-                        else:
-                            smaller_index = iterative
-                            larger_index = inner_iteration
-                        # make other iteration skip this one
-                        all_positive_areas[smaller_index]['skip'] = True
-
-                        all_positive_areas[larger_index]['xmin'] = min(all_positive_areas[iterative]['xmin']
-                                                                    ,all_positive_areas[inner_iteration]['xmin'])
-                        all_positive_areas[larger_index]['ymin'] = min(all_positive_areas[iterative]['ymin'],
-                                                                    all_positive_areas[inner_iteration]['ymin'])
-                        all_positive_areas[larger_index]['width'] = max(all_positive_areas[iterative]['width'],
-                                                                    all_positive_areas[inner_iteration]['width'])
-                        all_positive_areas[larger_index]['height'] = max(all_positive_areas[iterative]['height'],
-                                                                      all_positive_areas[inner_iteration]['height'])
-    # draw the rest of the boxes
+    # draw the non-skip of the boxes
     for iterative in range(positive_boxes_count):
         if not all_positive_areas[iterative]['skip']:
             color = (0,255,0)
@@ -335,8 +321,8 @@ if __name__ == "__main__":
         radius = int(width / 2)
         hough_space_gradient_threshold = 85
         hough_circle_threshold = 20
-        hough_line_gradient_threshold = 30
-        hough_line_threshold = 15
+        hough_line_gradient_threshold = 66
+        hough_line_threshold = 50
 
 
         # viola jones
@@ -350,7 +336,7 @@ if __name__ == "__main__":
         # implement pipeline and filter of detections
         filter_output(faceRect, circle_dict, circle_count, intersection_map, img_output, intersection_count, img_grey)
         # write 65_threshold_output on to image
-        cv2.imwrite( "40_percent/" + num + "_.png", img_output)
+        cv2.imwrite( "new_algo/" + num + "_.png", img_output)
 
 
 

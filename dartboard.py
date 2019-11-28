@@ -98,7 +98,7 @@ def sobel(img,dx,dy):
     image_dx = convolution(img,dx)
     image_dy = convolution(img,dy)
 
-    gradient_magnitude = np.sqrt(np.power(image_dx,2) + np.power(image_dx,2))
+    gradient_magnitude = np.sqrt(np.power(image_dy,2) + np.power(image_dx,2))
     gradient_angle = np.arctan2(image_dy,image_dx)
 
     return image_dx,image_dy,gradient_magnitude,gradient_angle
@@ -139,8 +139,8 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
                     count += 1
 
                     color = (0,0,255)
-                    # cv2.circle(twod_circle_space, (j,i), hough_space_max_r[i][j], color, 1)
-    # cv2.imwrite("circle_space_" + num + "_.png", twod_circle_space)
+                    cv2.circle(twod_circle_space, (j,i), hough_space_max_r[i][j], color, 1)
+    cv2.imwrite("new_gradient/circle_space_" + num + "_.png", twod_circle_space)
 
     # PLOT GRAPH
     # imgplot = plt.imshow(hough_space_output)
@@ -149,51 +149,61 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
 
 
 def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gradient_threshold, hough_line_threshold):
-    thetas = np.deg2rad(np.arange(-90, 90))
-    theta_idx = np.nonzero(thetas)
     rho_max = np.ceil(np.sqrt(math.pow(width, 2) + math.pow(height, 2)))
     rhos = np.linspace(0, int(rho_max), int(rho_max))
-    hough_space = np.zeros((len(rhos), len(thetas)), np.float32)
+    hough_space = np.zeros((2 * (width + height), 360), np.float32)
     intersection_map = np.zeros((height, width), np.float32)
     lines = []
+    angleRange = 1
 
     print("LD : Calculating rho and theta ")
+    print(hough_space.shape)
     for i in range(height):
         for j in range(width):
-            if(gradient_magnitude[i][j] > hough_line_gradient_threshold):
-                for t in theta_idx[0]:
-                    rho = round(i * math.sin(thetas[t]) + j * math.cos(thetas[t]))
-                    hough_space[rho][t] += 1
+            if (gradient_magnitude[i][j] > hough_line_gradient_threshold):
+
+                directionVal = gradient_angle[i][j]
+                directionTheta = round(
+                    np.rad2deg(directionVal) if (directionVal >= 0) else 360 + np.rad2deg(directionVal))
+
+                if (directionTheta + angleRange < 360):
+                    theta_min = 0 if (directionTheta - angleRange < 0) else int(directionTheta - angleRange)
+                    theta_max = 359 if (directionTheta + angleRange > 359) else int(directionTheta + angleRange)
+                    for t in range(theta_min, theta_max + 1, 1):
+                        radians = np.deg2rad(t)
+                        rho = round(i * math.sin(radians) + j * math.cos(radians) + width + height)
+                        hough_space[rho][t] += 1
 
     line_idx = 0
     print("LD : Calculating x1,y1 and x2,y2 ")
-    for r in range(int(rho_max)):
-        for t in theta_idx[0]:
-            if(hough_space[r][t] > hough_line_threshold):
-                a = np.cos(thetas[t])
-                b = np.sin(thetas[t])
-                x0 = a*r
-                y0 = b*r
-                x1 = int(x0 + 1000*(-b))
-                y1 = int(y0 + 1000*(a))
-                x2 = int(x0 - 1000*(-b))
-                y2 = int(y0 - 1000*(a))
+    for r in range(hough_space.shape[0]):
+        for t in range(hough_space.shape[1]):
+            if (hough_space[r][t] > hough_line_threshold):
+                a = np.cos(np.deg2rad(t))
+                b = np.sin(np.deg2rad(t))
+                x0 = a * (r - width - height)
+                y0 = b * (r - width - height)
+                x1 = int(x0 + 1000 * (-b))
+                y1 = int(y0 + 1000 * (a))
+                x2 = int(x0 - 1000 * (-b))
+                y2 = int(y0 - 1000 * (a))
 
-                lines.append([line_idx, (x1, y1),(x2, y2)])
+                lines.append([line_idx, (x1, y1), (x2, y2)])
                 line_idx += 1
 
-                cv2.line(twod_circle_space,(x1,y1),(x2,y2),(0,0,255),1)
-    # cv2.imwrite("line_space_" + num + "_.png", twod_circle_space)
+                cv2.line(twod_line_space, (x1, y1), (x2, y2), (0, 0, 255), 1)
+    cv2.imwrite("new_gradient/line_space_" + num + "_.png", twod_line_space)
     print("LD : Calculating intersection ")
     intersection_count = 0
     for line_1 in lines:
         for line_2 in lines:
-            if(line_1[0] < line_2[0]):
+            if (line_1[0] < line_2[0]):
                 line1 = LineString([line_1[1], line_1[2]])
                 line2 = LineString([line_2[1], line_2[2]])
                 intersect = line1.intersection(line2)
                 if not intersect.is_empty and intersect.geom_type == 'Point':
-                    if int(intersect.y) < height and int(intersect.x) < width and int(intersect.y) >= 0 and int(intersect.x) >= 0:
+                    if int(intersect.y) < height and int(intersect.x) < width and int(intersect.y) >= 0 and int(
+                            intersect.x) >= 0:
                         intersection_count += 1
                         intersection_map[int(intersect.y)][int(intersect.x)] += 1
 
@@ -308,7 +318,7 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
 # Main function
 if __name__ == "__main__":
 
-    for number in range(0,16):
+    for number in range(0,5):
         num = str(number)
         print(" ------ Calculating :  " + num + " -----------")
         # for denoising images
@@ -327,15 +337,16 @@ if __name__ == "__main__":
         height, width = img.shape
 
 
-        twod_circle_space = np.zeros((height, width,3), dtype=np.uint8)
+        twod_line_space = np.zeros((height, width,3), dtype=np.uint8)
+        twod_circle_space = np.zeros((height, width, 3), dtype=np.uint8)
 
         dx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], np.int32)
         dy = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], np.int32)
 
         radius = int(width / 2)
-        hough_space_gradient_threshold = 85
+        hough_space_gradient_threshold = 70
         hough_circle_threshold = 20
-        hough_line_gradient_threshold = 30
+        hough_line_gradient_threshold = 40
         hough_line_threshold = 15
 
 
@@ -350,7 +361,7 @@ if __name__ == "__main__":
         # implement pipeline and filter of detections
         filter_output(faceRect, circle_dict, circle_count, intersection_map, img_output, intersection_count, img_grey)
         # write 65_threshold_output on to image
-        cv2.imwrite( "40_percent/" + num + "_.png", img_output)
+        cv2.imwrite( "new_gradient/" + num + "_.png", img_output)
 
 
 
