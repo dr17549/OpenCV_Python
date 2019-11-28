@@ -110,21 +110,23 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
     hough_space = np.zeros((height, width, radius), np.int32)
     hough_space_output = np.zeros((height, width), np.float32)
     hough_space_max_r = np.zeros((height, width), np.float32)
-
+    radius_offset = 10
     print("CD : Calculating Hough Space 3D")
     for i in range(height):
         for j in range(width):
             if(gradient_magnitude[i][j] > hough_space_gradient_threshold):
                 for radi in range(radius):
+                    radi_index = radi
+                    radi += radius_offset
                     x0 = i + int(radi * math.sin(gradient_angle[i][j]))
                     y0 = j + int(radi * math.cos(gradient_angle[i][j]))
                     if x0 >= 0 and y0 >= 0 and x0 < height and y0 < width:
-                        hough_space[x0][y0][radi] += 1
+                        hough_space[x0][y0][radi_index] += 1
 
                     x1 = i - int(radi * math.sin(gradient_angle[i][j]))
                     y1 = j - int(radi * math.cos(gradient_angle[i][j]))
                     if x1 >= 0 and y1 >= 0 and x1 < height and y1 < width:
-                        hough_space[x1][y1][radi] += 1
+                        hough_space[x1][y1][radi_index] += 1
 
     print("CD : Calculating 2D Sum of Hough Space and max Radius")
     count = 0
@@ -132,15 +134,72 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
         for j in range(0,width):
                 hough_space_output[i][j] = np.sum(hough_space[i][j])
                 hough_space_max_r[i][j] = np.argmax(hough_space[i][j])
-                if hough_space_output[i][j] > hough_circle_threshold:
-                    # stored as dictionary
-                    final_output[count]['row'] = i
-                    final_output[count]['column'] = j
-                    count += 1
 
-                    color = (0,0,255)
-                    cv2.circle(twod_circle_space, (j,i), hough_space_max_r[i][j], color, 1)
-    cv2.imwrite("new_gradient/circle_space_" + num + "_.png", twod_circle_space)
+
+    # merging circles
+    area_width = int(width / 5)
+    area_height = int(height / 5)
+    print("CD : Merging Circles")
+    for i in range(0,(height - area_height) + 1, area_height):
+        for j in range(0,(width - area_width) + 1, area_width):
+                current_maximum = hough_space_output[i][j]
+                index_1 = i
+                index_2 = j
+                for x0 in range(0,area_height):
+                    for y0 in range(0,area_width):
+                        if hough_space_output[i + x0][j + y0] > current_maximum:
+                            current_maximum = hough_space_output[i + x0][j + y0]
+                            hough_space_output[index_1][index_2] = 0
+                            index_1 = i + x0
+                            index_2 = j + y0
+                        else:
+                            hough_space_output[i + x0][j + y0] = 0
+    print("CD : Merging the remainder areas")
+    # first area right side
+    for i in range(0, (height - area_height) + 1, area_height):
+        j = width - area_width
+        current_maximum = hough_space_output[i][j]
+        index_1 = i
+        index_2 = j
+        for x0 in range(0, area_height):
+            for y0 in range(0, area_width):
+                if hough_space_output[i + x0][j + y0] > current_maximum:
+                    current_maximum = hough_space_output[i + x0][j + y0]
+                    hough_space_output[index_1][index_2] = 0
+                    index_1 = i + x0
+                    index_2 = j + y0
+                else:
+                    hough_space_output[i + x0][j + y0] = 0
+
+    # second area bottom side
+    for j in range(0,(width - area_width) + 1, area_width):
+        i = height - area_height
+        current_maximum = hough_space_output[i][j]
+        index_1 = i
+        index_2 = j
+        for x0 in range(0, area_height):
+            for y0 in range(0, area_width):
+                if hough_space_output[i + x0][j + y0] > current_maximum:
+                    current_maximum = hough_space_output[i + x0][j + y0]
+                    hough_space_output[index_1][index_2] = 0
+                    index_1 = i + x0
+                    index_2 = j + y0
+                else:
+                    hough_space_output[i + x0][j + y0] = 0
+
+    # END OF MERGING PROCESS
+    print("CD : Output and Save Final Hough Space")
+    for i in range(0,height):
+        for j in range(0,width):
+            if hough_space_output[i][j] > hough_circle_threshold:
+                # stored as dictionary
+                final_output[count]['row'] = i
+                final_output[count]['column'] = j
+                count += 1
+
+                color = (0, 0, 255)
+                cv2.circle(twod_circle_space, (j, i), int(hough_space_max_r[i][j] + radius_offset), color, 1)
+    cv2.imwrite("40_percent/circle_space_" + num + "_.png", twod_circle_space)
 
     # PLOT GRAPH
     # imgplot = plt.imshow(hough_space_output)
@@ -155,6 +214,7 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
     intersection_map = np.zeros((height, width), np.float32)
     lines = []
     angleRange = 1
+    line_combination_threshold = np.deg2rad(0.3)
 
     print("LD : Calculating rho and theta ")
     print(hough_space.shape)
@@ -191,21 +251,32 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
                 lines.append([line_idx, (x1, y1), (x2, y2)])
                 line_idx += 1
 
-                cv2.line(twod_line_space, (x1, y1), (x2, y2), (0, 0, 255), 1)
-    cv2.imwrite("new_gradient/line_space_" + num + "_.png", twod_line_space)
     print("LD : Calculating intersection ")
     intersection_count = 0
+
     for line_1 in lines:
         for line_2 in lines:
-            if (line_1[0] < line_2[0]):
+            if (line_1[0] < line_2[0] and line_1[0] != -1):
                 line1 = LineString([line_1[1], line_1[2]])
                 line2 = LineString([line_2[1], line_2[2]])
                 intersect = line1.intersection(line2)
                 if not intersect.is_empty and intersect.geom_type == 'Point':
-                    if int(intersect.y) < height and int(intersect.x) < width and int(intersect.y) >= 0 and int(
-                            intersect.x) >= 0:
-                        intersection_count += 1
-                        intersection_map[int(intersect.y)][int(intersect.x)] += 1
+                    slope_l1 = (math.pi / 2) if (line_1[2][0] - line_1[1][0] == 0) else np.arctan(
+                        line_1[2][1] - line_1[1][1]) / (line_1[2][0] - line_1[1][0])
+                    slope_l2 = (math.pi / 2) if (line_2[2][0] - line_2[1][0] == 0) else np.arctan(
+                        line_2[2][1] - line_2[1][1]) / (line_2[2][0] - line_2[1][0])
+                    if (abs(slope_l2 - slope_l1) < line_combination_threshold):
+                        line_2[0] = -1
+                    elif (abs(slope_l2 - slope_l1) >= line_combination_threshold):
+                        if int(intersect.y) < height and int(intersect.x) < width and int(intersect.y) >= 0 and int(
+                                intersect.x) >= 0:
+                            intersection_count += 1
+                            intersection_map[int(intersect.y)][int(intersect.x)] += 1
+
+    for line in lines:
+        if line[0] != -1:
+            cv2.line(twod_line_space, line[1], line[2], (0, 0, 255), 1)
+    cv2.imwrite("40_percent/line_space_" + num + "_.png", twod_line_space)
 
     # PLOT
     # imgplot = plt.imshow(hough_space)
@@ -217,8 +288,8 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
     all_positive_areas = collections.defaultdict(dict)
     positive_boxes_count = 0
     print("FO : Start Filtering")
-    line_detected_threshold = intersection_count * 0.01
-    circle_detected_threshold = circle_iterations * 0.03
+    line_detected_threshold = intersection_count * 0.1
+    circle_detected_threshold = circle_iterations * 0.1
     # decision here
     min_grey = img_grey.min()
     max_grey = img_grey.max()
@@ -232,9 +303,9 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
         line_count = 0
         white_count = 0
 
-        circle_weight = 0.25
-        line_weight = 0.7
-        grey_weight = 0.05
+        circle_weight = 0.35
+        line_weight = 0.65
+        grey_weight = 0.00
 
         # calculate whiteness score
         for i in range(y, y + height):
@@ -318,7 +389,7 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
 # Main function
 if __name__ == "__main__":
 
-    for number in range(0,5):
+    for number in range(2,3):
         num = str(number)
         print(" ------ Calculating :  " + num + " -----------")
         # for denoising images
@@ -343,8 +414,8 @@ if __name__ == "__main__":
         dx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], np.int32)
         dy = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], np.int32)
 
-        radius = int(width / 2)
-        hough_space_gradient_threshold = 70
+        radius = int(width / 3)
+        hough_space_gradient_threshold = 50
         hough_circle_threshold = 20
         hough_line_gradient_threshold = 40
         hough_line_threshold = 15
@@ -361,7 +432,7 @@ if __name__ == "__main__":
         # implement pipeline and filter of detections
         filter_output(faceRect, circle_dict, circle_count, intersection_map, img_output, intersection_count, img_grey)
         # write 65_threshold_output on to image
-        cv2.imwrite( "new_gradient/" + num + "_.png", img_output)
+        cv2.imwrite( "40_percent/" + num + "_.png", img_output)
 
 
 
