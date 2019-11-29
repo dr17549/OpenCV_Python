@@ -257,8 +257,10 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
                 lines.append([line_idx, (x1, y1), (x2, y2)])
                 line_idx += 1
 
-    imgplot = plt.imshow(hough_space)
-    plt.show()
+    # Plotting Hough Space in 2D
+    # imgplot = plt.imshow(hough_space)
+    # plt.show()
+
     print("LD : Calculating intersection ")
     intersection_count = 0
 
@@ -433,7 +435,7 @@ if __name__ == "__main__":
     # implement pipeline and filter of detections
     filter_output(faceRect, circle_dict, circle_count, intersection_map, img_output, intersection_count, img_grey)
     # write 65_threshold_output on to image
-    print("DONE : Output to detected.jpg ")
+    print("SUCCESS : Output to detected.jpg ")
     cv2.imwrite("detected.jpg", img_output)
 
 
