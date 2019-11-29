@@ -110,7 +110,8 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
     hough_space = np.zeros((height, width, radius), np.int32)
     hough_space_output = np.zeros((height, width), np.float32)
     hough_space_max_r = np.zeros((height, width), np.float32)
-    radius_offset = int(width/13)
+    # best = 15
+    radius_offset = int(width/15)
     print("CD : Calculating Hough Space 3D")
     for i in range(height):
         for j in range(width):
@@ -215,7 +216,7 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
     lines = []
     angleRange = 1
     line_combination_threshold = np.deg2rad(12)
-    noise_assumption_threshold = np.deg2rad(5)
+    noise_assumption_threshold = np.deg2rad(3)
 
     print("LD : Calculating rho and theta ")
     for i in range(height):
@@ -292,7 +293,8 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
     positive_boxes_count = 0
     print("FO : Start Filtering")
     line_detected_threshold = intersection_count * 0.05
-    circle_detected_threshold = circle_iterations * 0.12
+    # best = 0.12
+    circle_detected_threshold = circle_iterations * 0.18
     # decision here
     min_grey = img_grey.min()
     max_grey = img_grey.max()
@@ -419,7 +421,8 @@ if __name__ == "__main__":
         radius = int(width / 3)
         hough_space_gradient_threshold = 40
         hough_circle_threshold = 20
-        hough_line_gradient_threshold = 43
+        # best : 30
+        hough_line_gradient_threshold = 30
         hough_line_threshold = 15
 
 
