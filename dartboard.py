@@ -9,6 +9,8 @@ from collections import namedtuple
 from shapely.geometry import LineString
 import matplotlib.pyplot as plt
 
+
+
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
 os.chdir(dname)
@@ -111,7 +113,7 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
     hough_space_output = np.zeros((height, width), np.float32)
     hough_space_max_r = np.zeros((height, width), np.float32)
     # best = 15
-    radius_offset = int(width/15)
+    radius_offset = int(width/10)
     print("CD : Calculating Hough Space 3D")
     for i in range(height):
         for j in range(width):
@@ -138,8 +140,8 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
 
 
     # merging circles
-    area_width = int(width / 6)
-    area_height = int(height / 6)
+    area_width = int(width / 5)
+    area_height = int(height / 5)
     print("CD : Merging Circles")
     for i in range(0,(height - area_height) + 1, area_height):
         for j in range(0,(width - area_width) + 1, area_width):
@@ -198,9 +200,12 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
                 final_output[count]['column'] = j
                 count += 1
 
-                color = (255, 255 , 0)
-                cv2.circle(img_output, (j, i), int(hough_space_max_r[i][j] + radius_offset), color, 1)
-    # cv2.imwrite("40_percent/circle_space_" + num + "_.png", twod_circle_space)
+                # OPTIONAL : uncomment for detected circles drawing inside the image
+                # color = (255, 255 , 0)
+                # cv2.circle(img_output, (j, i), int(hough_space_max_r[i][j] + radius_offset), color, 1)
+
+    # OPTIONAL : write to seperate image
+    # cv2.imwrite("result_s4/circle_space_" + num + "_.png", twod_circle_space)
 
     # PLOT GRAPH
     # imgplot = plt.imshow(hough_space_output)
@@ -216,7 +221,7 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
     lines = []
     angleRange = 1
     line_combination_threshold = np.deg2rad(12)
-    noise_assumption_threshold = np.deg2rad(3)
+    noise_assumption_threshold = np.deg2rad(8)
 
     print("LD : Calculating rho and theta ")
     for i in range(height):
@@ -252,6 +257,8 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
                 lines.append([line_idx, (x1, y1), (x2, y2)])
                 line_idx += 1
 
+    imgplot = plt.imshow(hough_space)
+    plt.show()
     print("LD : Calculating intersection ")
     intersection_count = 0
 
@@ -276,15 +283,13 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
                             if int(intersect.y) < height and int(intersect.x) < width and int(intersect.y) >= 0 and int(intersect.x) >= 0:
                                 intersection_count += 1
                                 intersection_map[int(intersect.y)][int(intersect.x)] += 1
-    print(intersection_count)
-    for line in lines:
-        if line[0] != -1:
-            cv2.line(img_output, line[1], line[2], (0, 0, 255), 1)
-    # cv2.imwrite("40_percent/line_space_" + num + "_.png", twod_line_space)
 
-    # PLOT
-    # imgplot = plt.imshow(hough_space)
-    # plt.show()
+    # Draw LINES into image
+    # for line in lines:
+    #     if line[0] != -1:
+    #         cv2.line(img_output, line[1], line[2], (0, 0, 255), 1)
+    # cv2.imwrite("result_s4/line_space_" + num + "_.png", twod_line_space)
+
     return intersection_map, intersection_count
 
 def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, img_output, intersection_count, img_grey):
@@ -293,9 +298,8 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
     positive_boxes_count = 0
     print("FO : Start Filtering")
     line_detected_threshold = intersection_count * 0.05
-    # best = 0.12
     circle_detected_threshold = circle_iterations * 0.18
-    # decision here
+
     min_grey = img_grey.min()
     max_grey = img_grey.max()
     grey_counter_threshold = ((max_grey - min_grey) * 0.4) + min_grey
@@ -393,51 +397,44 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
 # Main function
 if __name__ == "__main__":
 
-    for number in range(0,16):
-        num = str(number)
-        print(" ------ Calculating :  " + num + " -----------")
-        # for denoising images
-        # input_name = 'dart_images/dart' + num + '.jpg'
-        # input = cv2.imread(input_name)
-        # img = cv2.fastNlMeansDenoisingColored(input, None, 10, 10, 7, 21)
-        # img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # img_output = cv2.imread(input_name, 1)
-        # height, width, third_d = input.shape
+    img = cv2.imread(sys.argv[1])
+    dst = cv2.fastNlMeansDenoisingColored(img, None, 10, 10, 7, 21)
+    cv2.imwrite("de_noised.jpg", dst)
 
-        # normal detection
-        input = 'de_noised/dart' + num + '.jpg'
-        img = cv2.imread(input, 0)
-        img_grey = cv2.imread(input, 0)
-        img_output = cv2.imread(input, 1)
-        height, width = img.shape
+    # normal detection
+    input = 'de_noised.jpg'
+    img = cv2.imread(input, 0)
+    img_grey = cv2.imread(input, 0)
+    img_output = cv2.imread(sys.argv[1], 1)
+    height, width = img.shape
 
 
-        twod_line_space = np.zeros((height, width,3), dtype=np.uint8)
-        twod_circle_space = np.zeros((height, width, 3), dtype=np.uint8)
+    twod_line_space = np.zeros((height, width,3), dtype=np.uint8)
+    twod_circle_space = np.zeros((height, width, 3), dtype=np.uint8)
 
-        dx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], np.int32)
-        dy = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], np.int32)
+    dx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], np.int32)
+    dy = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], np.int32)
 
-        radius = int(width / 3)
-        hough_space_gradient_threshold = 40
-        hough_circle_threshold = 20
-        # best : 30
-        hough_line_gradient_threshold = 30
-        hough_line_threshold = 15
+    radius = int(width / 3)
+    hough_space_gradient_threshold = 40
+    hough_circle_threshold = 20
+    hough_line_gradient_threshold = 30
+    hough_line_threshold = 15
 
 
-        # viola jones
-        faceRect = detect_and_frame(img,img_grey)
-        # calculate all the convolutions pre-calculations
-        image_dx,image_dy,gradient_magnitude,gradient_angle = sobel(img,dx,dy)
-        # calculation line detection and 65_threshold_output results
-        intersection_map, intersection_count = line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gradient_threshold, hough_line_threshold)
-        # calculate circle detection
-        circle_dict, circle_count = circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold, hough_circle_threshold, radius, twod_circle_space)
-        # implement pipeline and filter of detections
-        filter_output(faceRect, circle_dict, circle_count, intersection_map, img_output, intersection_count, img_grey)
-        # write 65_threshold_output on to image
-        cv2.imwrite( "40_percent/" + num + "_.png", img_output)
+    # viola jones
+    faceRect = detect_and_frame(img,img_grey)
+    # calculate all the convolutions pre-calculations
+    image_dx,image_dy,gradient_magnitude,gradient_angle = sobel(img,dx,dy)
+    # calculation line detection and 65_threshold_output results
+    intersection_map, intersection_count = line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gradient_threshold, hough_line_threshold)
+    # calculate circle detection
+    circle_dict, circle_count = circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold, hough_circle_threshold, radius, twod_circle_space)
+    # implement pipeline and filter of detections
+    filter_output(faceRect, circle_dict, circle_count, intersection_map, img_output, intersection_count, img_grey)
+    # write 65_threshold_output on to image
+    print("DONE : Output to detected.jpg ")
+    cv2.imwrite("detected.jpg", img_output)
 
 
 
