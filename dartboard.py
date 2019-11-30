@@ -82,6 +82,7 @@ def convolution(img,kernel):
 
     return image_convoluted
 
+# normalize function to draw the convoluted images
 def normalize(image_dx):
 
     min = image_dx.min()
@@ -109,11 +110,15 @@ def sobel(img,dx,dy):
 def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_gradient_threshold, hough_circle_threshold, radius, twod_circle_space):
 
     final_output = collections.defaultdict(dict)
+    # 3D hough space
     hough_space = np.zeros((height, width, radius), np.int32)
+    # 2D Sum count of hough space of all radius at point (x,y)
     hough_space_output = np.zeros((height, width), np.float32)
+    # Radius with highest points at each point (x,y) , 0 if there is none
     hough_space_max_r = np.zeros((height, width), np.float32)
-    # best = 15
+    # offset of raius so that it doesn't start counting at 0 length
     radius_offset = int(width/10)
+
     print("CD : Calculating Hough Space 3D")
     for i in range(height):
         for j in range(width):
@@ -158,7 +163,7 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
                         else:
                             hough_space_output[i + x0][j + y0] = 0
     print("CD : Merging the remainder areas")
-    # first area right side
+    # Merging the left-over areas in the right side columns
     for i in range(0, (height - area_height) + 1, area_height):
         j = width - area_width
         current_maximum = hough_space_output[i][j]
@@ -174,7 +179,7 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
                 else:
                     hough_space_output[i + x0][j + y0] = 0
 
-    # second area bottom side
+    # Merging the leftover areas in the bottom rows of the image
     for j in range(0,(width - area_width) + 1, area_width):
         i = height - area_height
         current_maximum = hough_space_output[i][j]
@@ -191,6 +196,7 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
                     hough_space_output[i + x0][j + y0] = 0
 
     # END OF MERGING PROCESS
+    # Collect only those circles that survived the merging process and give it to the filtered function
     print("CD : Output and Save Final Hough Space")
     for i in range(0,height):
         for j in range(0,width):
@@ -207,7 +213,7 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
     # OPTIONAL : write to seperate image
     # cv2.imwrite("result_s4/circle_space_" + num + "_.png", twod_circle_space)
 
-    # PLOT GRAPH
+    # PLOT 2D Hough Space for GRAPH
     # imgplot = plt.imshow(hough_space_output)
     # plt.show()
     return final_output, count
@@ -295,13 +301,16 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
     return intersection_map, intersection_count
 
 def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, img_output, intersection_count, img_grey):
-    # score threshold for 65_threshold_output
+
+    # A collection of areas from viola jones that has a score more than the given threshold
     all_positive_areas = collections.defaultdict(dict)
     positive_boxes_count = 0
     print("FO : Start Filtering")
+    # Threshold for lines and circles
     line_detected_threshold = intersection_count * 0.05
     circle_detected_threshold = circle_iterations * 0.18
 
+    # White pixels counter - not used in this version
     min_grey = img_grey.min()
     max_grey = img_grey.max()
     grey_counter_threshold = ((max_grey - min_grey) * 0.4) + min_grey
@@ -318,18 +327,20 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
         line_weight = 0.6
         grey_weight = 0.00
 
-        # calculate whiteness score
-        for i in range(y, y + height):
-            for j in range(x, x + width):
-                if img_grey[i][j] < grey_counter_threshold:
-                    white_count += 1
+        # calculate whiteness score - Not used in this version
+        # for i in range(y, y + height):
+        #     for j in range(x, x + width):
+        #         if img_grey[i][j] < grey_counter_threshold:
+        #             white_count += 1
 
         # calculate score for lines intersection inside the viola jones box
         for i in range(y, y + height):
             for j in range(x, x + width):
+                # the closer the lines is to the center of the box, the more weight it is counted towards the score
                 distance = np.sqrt(np.power((i - center_of_box_row),2) + np.power((j - center_of_box_col),2))
                 individual_weight = (100 - distance) / 100
                 line_count += int(intersection_map[i][j] * individual_weight)
+
         # calculate score for circle inside the viola jones box
         for circle_index in range(circle_iterations):
             row = circle_dict[circle_index]['row']
@@ -337,22 +348,25 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
 
             # track count by giving it a weight of how far it is from the center of the circle
             if row > y and row < y + height and col > x and col < x + width:
+                # the closer the circle is to the center of the box, the more weight it is counted towards the score
                 distance = np.sqrt(np.power((row - center_of_box_row),2) + np.power((col - center_of_box_col),2))
                 individual_weight = (100 - distance) / 100
                 circle_count += int(100 * individual_weight)
 
-        # ignore the circles if there are not inside
+        # ignore the circles if there are none inside
         if circle_count == 0:
             c_threshold = 0
         else:
             c_threshold = circle_detected_threshold
 
         grey_detected_threshold = 0.3 * (height * width)
+        # threshold of the image
         total_threshold = (line_weight * line_detected_threshold) + (circle_weight * c_threshold) + (grey_weight * grey_detected_threshold)
+        # box individual score
         individual_acc_score = (line_weight * line_count) + (circle_weight * circle_count) + (grey_weight * white_count)
 
+        # if the box's score is more than the threshold, collect inside the Python collection
         if individual_acc_score > total_threshold:
-            # if more than threshold , draw
             all_positive_areas[positive_boxes_count]['xmin'] = x
             all_positive_areas[positive_boxes_count]['ymin'] = y
             all_positive_areas[positive_boxes_count]['width'] = width
@@ -360,13 +374,15 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
             all_positive_areas[positive_boxes_count]['skip'] = False
             positive_boxes_count += 1
 
-    # take out the areas that intersect too much
+    # Merge true positive boxes so that one doesn't count as False positive
     for iterative in range(positive_boxes_count):
         for inner_iteration in range(positive_boxes_count):
             if iterative != inner_iteration:
                 if not all_positive_areas[inner_iteration]['skip'] and not all_positive_areas[iterative]['skip']:
                     area_intersect,smaller = rectangle(all_positive_areas[inner_iteration], all_positive_areas[iterative])
 
+                    # if area intersected is more than 40%, merge
+                    # by keeping the larger area
                     if area_intersect > 0.4:
                         if smaller == 'a':
                             smaller_index = inner_iteration
@@ -375,7 +391,8 @@ def filter_output(faceRect, circle_dict, circle_iterations, intersection_map, im
                         else:
                             smaller_index = iterative
                             larger_index = inner_iteration
-                        # make other iteration skip this one
+
+                        # make the drawing function skip this one
                         all_positive_areas[smaller_index]['skip'] = True
 
                         all_positive_areas[larger_index]['xmin'] = min(all_positive_areas[iterative]['xmin']
