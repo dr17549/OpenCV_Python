@@ -220,34 +220,36 @@ def circle_detection_hough_space(gradient_magnitude,gradient_angle, hough_space_
 
 
 def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gradient_threshold, hough_line_threshold):
-    rho_max = np.ceil(np.sqrt(math.pow(width, 2) + math.pow(height, 2)))
-    rhos = np.linspace(0, int(rho_max), int(rho_max))
     hough_space = np.zeros((2 * (width + height), 360), np.float32)
     intersection_map = np.zeros((height, width), np.float32)
     lines = []
-    angleRange = 1
-    line_combination_threshold = np.deg2rad(12)
-    noise_assumption_threshold = np.deg2rad(8)
+    theta_tolerance = 1
+    line_combination_threshold = np.deg2rad(12) #Combining lines that intersect and has slops narrower than this angle
+    noise_assumption_threshold = np.deg2rad(8) #Removing lines that are with in this threshold to absolute horizontal or vertical angles
 
+    #Calculating the line hough space
     print("LD : Calculating rho and theta ")
     for i in range(height):
         for j in range(width):
             if (gradient_magnitude[i][j] > hough_line_gradient_threshold):
 
-                directionVal = gradient_angle[i][j]
-                directionTheta = round(
-                    np.rad2deg(directionVal) if (directionVal >= 0) else 360 + np.rad2deg(directionVal))
+                #Get the gradient angle and normailise it to conform with the hough space range
+                gradient_val = gradient_angle[i][j]
+                theta_val = round(
+                    np.rad2deg(gradient_val) if (gradient_val >= 0) else 360 + np.rad2deg(gradient_val))
 
-                if (directionTheta + angleRange < 360):
-                    theta_min = 0 if (directionTheta - angleRange < 0) else int(directionTheta - angleRange)
-                    theta_max = 359 if (directionTheta + angleRange > 359) else int(directionTheta + angleRange)
+                #Make sure the min and max of the exploring angles are within range
+                if (theta_val + theta_tolerance < 360):
+                    theta_min = 0 if (theta_val - theta_tolerance < 0) else int(theta_val - theta_tolerance)
+                    theta_max = 359 if (theta_val + theta_tolerance > 359) else int(theta_val + theta_tolerance)
                     for t in range(theta_min, theta_max + 1, 1):
                         radians = np.deg2rad(t)
                         rho = round(i * math.sin(radians) + j * math.cos(radians) + width + height)
                         hough_space[rho][t] += 1
 
-    line_idx = 0
+    #Sample two points from each pair of rho and theta in the hough space for visualisation
     print("LD : Calculating x1,y1 and x2,y2 ")
+    line_idx = 0
     for r in range(hough_space.shape[0]):
         for t in range(hough_space.shape[1]):
             if (hough_space[r][t] > hough_line_threshold):
@@ -267,14 +269,15 @@ def line_detection_hough_space(gradient_magnitude, gradient_angle, hough_line_gr
     # imgplot = plt.imshow(hough_space)
     # plt.show()
 
-    print("LD : Calculating intersection ")
-    intersection_count = 0
-
+    #Removing the lines that are almost vertical and horizontal
     for line in lines:
         slope_l = (math.pi / 2) if (line[2][0] - line[1][0] == 0) else np.arctan((line[2][1] - line[1][1]) / (line[2][0] - line[1][0]))
         if (abs(slope_l - 0) < noise_assumption_threshold) or (abs(slope_l - math.pi / 2) < noise_assumption_threshold) or (abs(slope_l + math.pi / 2) < noise_assumption_threshold):
             line[0] = -1
 
+    #Counting the number of line intersections for the remaining lines
+    print("LD : Calculating intersection ")
+    intersection_count = 0
     for line_1 in lines:
         if (line_1[0] != -1):
             for line_2 in lines:
